@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Professional Contractor Scope Pack</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+:root{
+    --primary:#1e3a8a;
+    --light:#3b82f6;
+    --bg:#eef2ff;
+    --section:#ffffff;
+    --border:#cbd5e1;
+}
+body{
+    font-family: Arial, sans-serif;
+    background:var(--bg);
+    padding:15px;
+}
+h2{ color:var(--primary); }
+h3{
+    color:var(--primary);
+    border-bottom:2px solid var(--light);
+    padding-bottom:5px;
+}
+input, textarea{
+    width:100%;
+    padding:10px;
+    margin:6px 0;
+    border:1px solid var(--border);
+    border-radius:6px;
+}
+button{
+    width:100%;
+    padding:12px;
+    margin-top:8px;
+    background:var(--primary);
+    color:white;
+    border:none;
+    border-radius:6px;
+}
+.section{
+    background:var(--section);
+    padding:18px;
+    margin-top:18px;
+    border-radius:10px;
+}
+.area{
+    border-left:5px solid var(--primary);
+    background:#f8fafc;
+    padding:12px;
+    margin-top:12px;
+    border-radius:6px;
+}
+.dim-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+}
+.calc-box{
+    background:#e0e7ff;
+    padding:8px;
+    border-radius:6px;
+    font-size:14px;
+}
+.photo-buttons{
+    display:flex;
+    justify-content:space-between;
+}
+.photo-buttons button{
+    width:48%;
+}
+.hidden{ display:none; }
+</style>
+</head>
+
+<body>
+
+<h2>Professional Scope Pack Generator</h2>
+
+<div class="section">
+<h3>Customer Details</h3>
+<input id="customerName" placeholder="Customer Name">
+<input id="customerPhone" placeholder="Customer Phone">
+<input id="customerEmail" placeholder="Customer Email">
+<input id="siteAddress" placeholder="Site Address">
+</div>
+
+<div class="section">
+<h3>Front of Property (Required)</h3>
+<div class="photo-buttons">
+<button onclick="trigger('frontCamera')">📷 Take</button>
+<button onclick="trigger('frontUpload')">🖼 Upload</button>
+</div>
+<input type="file" id="frontCamera" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="frontUpload" accept="image/*" class="hidden">
+</div>
+
+<div class="section">
+<h3>Areas</h3>
+<div id="areas"></div>
+<button onclick="addArea()">+ Add Area</button>
+</div>
+
+<button onclick="generatePDF()">Generate Professional PDF</button>
+
+<script>
+
+let areaCount = 0;
+
+function trigger(id){
+    document.getElementById(id).click();
+}
+
+function calculate(id){
+    const w=parseFloat(document.getElementById("w"+id).value)||0;
+    const l=parseFloat(document.getElementById("l"+id).value)||0;
+    const h=parseFloat(document.getElementById("h"+id).value)||0;
+
+    document.getElementById("floor"+id).innerText=(w*l).toFixed(2)+" m²";
+    document.getElementById("walls"+id).innerText=(2*h*(w+l)).toFixed(2)+" m²";
+    document.getElementById("volume"+id).innerText=(w*l*h).toFixed(2)+" m³";
+}
+
+function addArea(){
+    areaCount++;
+    const div=document.createElement("div");
+    div.className="area";
+    div.innerHTML=`
+        <h4>Area ${areaCount}</h4>
+        <input id="areaName${areaCount}" placeholder="Area Name">
+        <textarea id="desc${areaCount}" placeholder="Scope Description"></textarea>
+
+        <div class="dim-grid">
+            <input id="w${areaCount}" type="number" placeholder="Width (m)" oninput="calculate(${areaCount})">
+            <input id="l${areaCount}" type="number" placeholder="Length (m)" oninput="calculate(${areaCount})">
+            <input id="h${areaCount}" type="number" placeholder="Height (m)" oninput="calculate(${areaCount})">
+        </div>
+
+        <div class="calc-box">
+            Floor: <span id="floor${areaCount}">0 m²</span><br>
+            Walls: <span id="walls${areaCount}">0 m²</span><br>
+            Volume: <span id="volume${areaCount}">0 m³</span>
+        </div>
+
+        <div class="photo-buttons">
+            <button onclick="trigger('areaCam${areaCount}')">📷 Take</button>
+            <button onclick="trigger('areaUp${areaCount}')">🖼 Upload</button>
+        </div>
+        <input type="file" id="areaCam${areaCount}" accept="image/*" capture="environment" multiple class="hidden">
+        <input type="file" id="areaUp${areaCount}" accept="image/*" multiple class="hidden">
+    `;
+    document.getElementById("areas").appendChild(div);
+}
+
+async function generatePDF(){
+
+    const frontFile =
+        document.getElementById("frontCamera").files[0] ||
+        document.getElementById("frontUpload").files[0];
+
+    if(!frontFile){
+        alert("Front property photo required.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc=new jsPDF("p","mm","a4");
+
+    const margin=20;
+    const pageWidth=210;
+    const contentWidth=pageWidth-(margin*2);
+    let y=30;
+    let pageNumber=1;
+
+    function addHeader(){
+        doc.setFillColor(30,58,138);
+        doc.rect(0,0,210,20,"F");
+        doc.setTextColor(255,255,255);
+        doc.setFontSize(14);
+        doc.text("SCOPE OF WORKS",margin,13);
+        doc.setTextColor(0,0,0);
+        y=30;
+    }
+
+    function addFooter(){
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(
+            "Generated on "+new Date().toLocaleString()+
+            "  |  Page "+pageNumber,
+            margin,
+            290
+        );
+        doc.setTextColor(0,0,0);
+    }
+
+    function text(label,value){
+        doc.setFont(undefined,"bold");
+        doc.text(label,margin,y);
+        doc.setFont(undefined,"normal");
+        y+=5;
+        doc.text(value||"-",margin,y,{maxWidth:contentWidth});
+        y+=8;
+    }
+
+    function check(space){
+        if(y+space>270){
+            addFooter();
+            doc.addPage();
+            pageNumber++;
+            addHeader();
+        }
+    }
+
+    function readImage(file){
+        return new Promise(resolve=>{
+            const reader=new FileReader();
+            reader.onload=e=>resolve(e.target.result);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    addHeader();
+
+    text("Customer",customerName.value);
+    text("Phone",customerPhone.value);
+    text("Email",customerEmail.value);
+    text("Site Address",siteAddress.value);
+
+    check(80);
+    doc.setFont(undefined,"bold");
+    doc.text("Property Identification",margin,y);
+    doc.setFont(undefined,"normal");
+    y+=8;
+
+    const frontImg=await readImage(frontFile);
+    doc.addImage(frontImg,"JPEG",margin,y,contentWidth,70);
+    y+=80;
+
+    for(let i=1;i<=areaCount;i++){
+
+        check(40);
+
+        doc.setFontSize(13);
+        doc.setFont(undefined,"bold");
+        doc.text("Area: "+(document.getElementById("areaName"+i).value||("Area "+i)),margin,y);
+        doc.setFont(undefined,"normal");
+        y+=10;
+
+        text("Description",document.getElementById("desc"+i).value);
+        text("Width (m)",document.getElementById("w"+i).value);
+        text("Length (m)",document.getElementById("l"+i).value);
+        text("Height (m)",document.getElementById("h"+i).value);
+        text("Floor Area",document.getElementById("floor"+i).innerText);
+        text("Wall Area",document.getElementById("walls"+i).innerText);
+        text("Volume",document.getElementById("volume"+i).innerText);
+
+        const files=[
+            ...document.getElementById("areaCam"+i).files,
+            ...document.getElementById("areaUp"+i).files
+        ];
+
+        if(files.length){
+            doc.setFont(undefined,"bold");
+            doc.text("Photos",margin,y);
+            doc.setFont(undefined,"normal");
+            y+=8;
+
+            let x=margin;
+            const photoWidth=(contentWidth-10)/2;
+            const photoHeight=45;
+
+            for(let j=0;j<files.length;j++){
+                const img=await readImage(files[j]);
+                check(photoHeight+10);
+                doc.addImage(img,"JPEG",x,y,photoWidth,photoHeight);
+
+                if(x===margin){
+                    x=margin+photoWidth+10;
+                }else{
+                    x=margin;
+                    y+=photoHeight+10;
+                }
+            }
+            y+=photoHeight+10;
+        }
+    }
+
+    addFooter();
+    doc.save("Scope-Pack.pdf");
+}
+
+</script>
+</body>
+</html>
