@@ -2,15 +2,13 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Professional Contractor Scope Pack</title>
+<title>Professional Scope Pack</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 :root{
     --primary:#1e3a8a;
-    --light:#3b82f6;
     --bg:#eef2ff;
     --section:#ffffff;
     --border:#cbd5e1;
@@ -23,7 +21,7 @@ body{
 h2{ color:var(--primary); }
 h3{
     color:var(--primary);
-    border-bottom:2px solid var(--light);
+    border-bottom:2px solid var(--primary);
     padding-bottom:5px;
 }
 input, textarea{
@@ -171,12 +169,14 @@ async function generatePDF(){
     const doc=new jsPDF("p","mm","a4");
 
     const margin=20;
-    const pageWidth=210;
-    const contentWidth=pageWidth-(margin*2);
+    const contentWidth=170;
+    const leftColWidth=95;
+    const rightColWidth=contentWidth-leftColWidth-10;
+
     let y=30;
     let pageNumber=1;
 
-    function addHeader(){
+    function header(){
         doc.setFillColor(30,58,138);
         doc.rect(0,0,210,20,"F");
         doc.setTextColor(255,255,255);
@@ -186,33 +186,23 @@ async function generatePDF(){
         y=30;
     }
 
-    function addFooter(){
+    function footer(){
         doc.setFontSize(8);
         doc.setTextColor(120);
         doc.text(
-            "Generated on "+new Date().toLocaleString()+
-            "  |  Page "+pageNumber,
+            "Generated "+new Date().toLocaleString()+" | Page "+pageNumber,
             margin,
             290
         );
         doc.setTextColor(0,0,0);
     }
 
-    function text(label,value){
-        doc.setFont(undefined,"bold");
-        doc.text(label,margin,y);
-        doc.setFont(undefined,"normal");
-        y+=5;
-        doc.text(value||"-",margin,y,{maxWidth:contentWidth});
-        y+=8;
-    }
-
     function check(space){
         if(y+space>270){
-            addFooter();
+            footer();
             doc.addPage();
             pageNumber++;
-            addHeader();
+            header();
         }
     }
 
@@ -224,26 +214,38 @@ async function generatePDF(){
         });
     }
 
-    addHeader();
+    header();
 
-    text("Customer",customerName.value);
-    text("Phone",customerPhone.value);
-    text("Email",customerEmail.value);
-    text("Site Address",siteAddress.value);
+    function labelValue(label,value){
+        doc.setFont(undefined,"bold");
+        doc.text(label,margin,y);
+        doc.setFont(undefined,"normal");
+        y+=6;
+        doc.text(value||"-",margin,y,{maxWidth:contentWidth});
+        y+=10;
+    }
 
-    check(80);
+    labelValue("Customer",customerName.value);
+    labelValue("Phone",customerPhone.value);
+    labelValue("Email",customerEmail.value);
+    labelValue("Site Address",siteAddress.value);
+
     doc.setFont(undefined,"bold");
     doc.text("Property Identification",margin,y);
     doc.setFont(undefined,"normal");
     y+=8;
 
     const frontImg=await readImage(frontFile);
-    doc.addImage(frontImg,"JPEG",margin,y,contentWidth,70);
-    y+=80;
+    const imgProps=doc.getImageProperties(frontImg);
+    const imgHeight=(imgProps.height*contentWidth)/imgProps.width;
+
+    check(imgHeight+10);
+    doc.addImage(frontImg,"JPEG",margin,y,contentWidth,imgHeight);
+    y+=imgHeight+15;
 
     for(let i=1;i<=areaCount;i++){
 
-        check(40);
+        check(60);
 
         doc.setFontSize(13);
         doc.setFont(undefined,"bold");
@@ -251,13 +253,25 @@ async function generatePDF(){
         doc.setFont(undefined,"normal");
         y+=10;
 
-        text("Description",document.getElementById("desc"+i).value);
-        text("Width (m)",document.getElementById("w"+i).value);
-        text("Length (m)",document.getElementById("l"+i).value);
-        text("Height (m)",document.getElementById("h"+i).value);
-        text("Floor Area",document.getElementById("floor"+i).innerText);
-        text("Wall Area",document.getElementById("walls"+i).innerText);
-        text("Volume",document.getElementById("volume"+i).innerText);
+        let leftY=y;
+        let rightY=y;
+
+        function leftText(label,value){
+            doc.setFont(undefined,"bold");
+            doc.text(label,margin,leftY);
+            doc.setFont(undefined,"normal");
+            leftY+=6;
+            doc.text(value||"-",margin,leftY,{maxWidth:leftColWidth});
+            leftY+=8;
+        }
+
+        leftText("Description",document.getElementById("desc"+i).value);
+        leftText("Width (m)",document.getElementById("w"+i).value);
+        leftText("Length (m)",document.getElementById("l"+i).value);
+        leftText("Height (m)",document.getElementById("h"+i).value);
+        leftText("Floor Area",document.getElementById("floor"+i).innerText);
+        leftText("Wall Area",document.getElementById("walls"+i).innerText);
+        leftText("Volume",document.getElementById("volume"+i).innerText);
 
         const files=[
             ...document.getElementById("areaCam"+i).files,
@@ -265,32 +279,21 @@ async function generatePDF(){
         ];
 
         if(files.length){
-            doc.setFont(undefined,"bold");
-            doc.text("Photos",margin,y);
-            doc.setFont(undefined,"normal");
-            y+=8;
-
-            let x=margin;
-            const photoWidth=(contentWidth-10)/2;
+            let photoX=margin+leftColWidth+10;
             const photoHeight=45;
 
-            for(let j=0;j<files.length;j++){
-                const img=await readImage(files[j]);
+            for(let file of files){
+                const img=await readImage(file);
                 check(photoHeight+10);
-                doc.addImage(img,"JPEG",x,y,photoWidth,photoHeight);
-
-                if(x===margin){
-                    x=margin+photoWidth+10;
-                }else{
-                    x=margin;
-                    y+=photoHeight+10;
-                }
+                doc.addImage(img,"JPEG",photoX,rightY,rightColWidth,photoHeight);
+                rightY+=photoHeight+8;
             }
-            y+=photoHeight+10;
         }
+
+        y=Math.max(leftY,rightY)+10;
     }
 
-    addFooter();
+    footer();
     doc.save("Scope-Pack.pdf");
 }
 
